@@ -1,8 +1,12 @@
 import cv2
 import mediapipe as mp
+from pose_detection import PostureDetector
+
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
+
+posture_detector = PostureDetector()
 
 pose = mp_pose.Pose(
     static_image_mode=False,
@@ -34,6 +38,13 @@ while True:
             results.pose_landmarks,
             mp_pose.POSE_CONNECTIONS
         )
+
+        posture_detector.update_landmarks(results.pose_landmarks)
+        key_points = posture_detector.get_key_points(mp_pose)
+
+        print("Nose:", key_points["nose"])
+        print("Left Shoulder:", key_points["left_shoulder"])
+        print("Right Shoulder:", key_points["right_shoulder"])
 
     cv2.imshow("Posture Monitor", frame)
 
