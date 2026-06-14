@@ -1,10 +1,13 @@
 import cv2
 import mediapipe as mp
+import time
 from pose_detection import PostureDetector
 
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
+bad_posture_start_time = None
+BAD_POSTURE_THRESHOLD_SECONDS = 10
 
 posture_detector = PostureDetector()
 baseline_metrics = None
@@ -20,6 +23,7 @@ pose = mp_pose.Pose(
 cap = cv2.VideoCapture(0)
 
 while True:
+    current_metrics = None
     success, frame = cap.read()
 
     if not success:
@@ -94,22 +98,80 @@ while True:
             current_metrics["shoulder_imbalance"] - baseline_metrics["shoulder_imbalance"]
         )
 
-        if shoulder_diff > 0.03:
-            status = "BAD SHOULDER POSTURE"
-            color = (0, 0, 255)
+        head_forward_diff = abs(
+            current_metrics["nose_to_shoulder_x"] - baseline_metrics["nose_to_shoulder_x"]
+        )
+
+        bad_shoulder = shoulder_diff > 0.03
+        bad_head = head_forward_diff > 0.04
+
+        if bad_shoulder and bad_head:
+            posture_status = "BAD POSTURE: SHOULDERS + HEAD"
+            posture_color = (0, 0, 255)
+
+        elif bad_shoulder:
+            posture_status = "BAD POSTURE: SHOULDERS"
+            posture_color = (0, 0, 255)
+
+        elif bad_head:
+            posture_status = "BAD POSTURE: HEAD FORWARD"
+            posture_color = (0, 0, 255)
+
         else:
-            status = "GOOD POSTURE"
-            color = (0, 255, 0)
+            posture_status = "GOOD POSTURE"
+            posture_color = (0, 255, 0)
+            
+        is_bad_posture = bad_shoulder or bad_head
+
+        if is_bad_posture:
+            if bad_posture_start_time is None:
+                bad_posture_start_time = time.time()
+
+            bad_duration = time.time() - bad_posture_start_time
+            
+        else:
+            bad_posture_start_time = None
+            bad_duration = 0
 
         cv2.putText(
             frame,
-            status,
+            posture_status,
             (30, 130),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
-            color,
+            posture_color,
             2,
         )
+        cv2.putText(
+            frame,
+            f"Head diff: {head_forward_diff:.3f}",
+            (30, 170),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 255),
+            2,
+        )
+        cv2.putText(
+            frame,
+            f"Bad posture time: {bad_duration:.1f}s",
+            (30, 210),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 255),
+            2,
+        )
+        
+        if bad_duration >= BAD_POSTURE_THRESHOLD_SECONDS:
+            cv2.putText(
+                frame,
+                "ALERT: Fix your posture!",
+                (30, 250),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.9,
+                (0, 0, 255),
+                3,
+            )
+    
     
     cv2.imshow("Posture Monitor", frame)
     key = cv2.waitKey(1) & 0xFF
