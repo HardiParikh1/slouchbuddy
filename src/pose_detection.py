@@ -9,6 +9,20 @@ class PostureDetector:
         if not self.landmarks:
             return None
         return self.landmarks.landmark[landmark_id]
+    
+    
+    def get_shoulder_imbalance(self, mp_pose):
+        key_points = self.get_key_points(mp_pose)
+
+        if not key_points:
+            return None
+
+        left_shoulder = key_points["left_shoulder"]
+        right_shoulder = key_points["right_shoulder"]
+
+        imbalance = abs(left_shoulder.y - right_shoulder.y)
+
+        return imbalance
 
     def get_key_points(self, mp_pose):
         if not self.landmarks:

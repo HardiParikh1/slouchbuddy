@@ -41,10 +41,29 @@ while True:
 
         posture_detector.update_landmarks(results.pose_landmarks)
         key_points = posture_detector.get_key_points(mp_pose)
+        
+        shoulder_imbalance = posture_detector.get_shoulder_imbalance(mp_pose)
+        if shoulder_imbalance < 0.02:
+            status = "GOOD"
+            color = (0, 255, 0)
 
-        print("Nose:", key_points["nose"])
-        print("Left Shoulder:", key_points["left_shoulder"])
-        print("Right Shoulder:", key_points["right_shoulder"])
+        elif shoulder_imbalance < 0.05:
+            status = "WARNING"
+            color = (0, 255, 255)
+
+        else:
+            status = "BAD"
+            color = (0, 0, 255)
+            
+        cv2.putText(
+            frame,
+            f"Shoulders: {status} ({shoulder_imbalance:.3f})",
+            (30, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            color,
+            2,
+        )
 
     cv2.imshow("Posture Monitor", frame)
 
