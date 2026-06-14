@@ -7,6 +7,7 @@ mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
 posture_detector = PostureDetector()
+baseline_metrics = None
 
 pose = mp_pose.Pose(
     static_image_mode=False,
@@ -41,6 +42,7 @@ while True:
 
         posture_detector.update_landmarks(results.pose_landmarks)
         key_points = posture_detector.get_key_points(mp_pose)
+        current_metrics = posture_detector.get_current_metrics(mp_pose)
         
         shoulder_imbalance = posture_detector.get_shoulder_imbalance(mp_pose)
         if shoulder_imbalance < 0.02:
@@ -65,9 +67,58 @@ while True:
             2,
         )
 
-    cv2.imshow("Posture Monitor", frame)
+    if baseline_metrics is None:
+        cv2.putText(
+            frame,
+            "Press C to calibrate good posture",
+            (30, 90),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 255),
+            2,
+        )
+    else:
+        cv2.putText(
+            frame,
+            "Calibrated",
+            (30, 90),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 0),
+            2,
+        )
+        
+        
+    if baseline_metrics and current_metrics:
+        shoulder_diff = abs(
+            current_metrics["shoulder_imbalance"] - baseline_metrics["shoulder_imbalance"]
+        )
 
-    if cv2.waitKey(1) & 0xFF == ord("q"):
+        if shoulder_diff > 0.03:
+            status = "BAD SHOULDER POSTURE"
+            color = (0, 0, 255)
+        else:
+            status = "GOOD POSTURE"
+            color = (0, 255, 0)
+
+        cv2.putText(
+            frame,
+            status,
+            (30, 130),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            color,
+            2,
+        )
+    
+    cv2.imshow("Posture Monitor", frame)
+    key = cv2.waitKey(1) & 0xFF
+
+    if key == ord("c"):
+        baseline_metrics = current_metrics
+        print("Calibration saved:", baseline_metrics)
+
+    if key == ord("q"):
         break
 
 cap.release()
