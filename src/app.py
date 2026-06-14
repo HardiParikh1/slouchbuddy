@@ -8,6 +8,8 @@ mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 bad_posture_start_time = None
 BAD_POSTURE_THRESHOLD_SECONDS = 10
+last_alert_time = None
+ALERT_COOLDOWN_SECONDS = 120
 
 posture_detector = PostureDetector()
 baseline_metrics = None
