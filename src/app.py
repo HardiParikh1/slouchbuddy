@@ -2,7 +2,7 @@ import cv2
 import mediapipe as mp
 import time
 from pose_detection import PostureDetector
-
+# Main Program, runs the loop; one iteration per video frame.
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -12,7 +12,8 @@ last_alert_time = None
 ALERT_COOLDOWN_SECONDS = 120
 
 posture_detector = PostureDetector()
-baseline_metrics = None
+baseline_metrics = None #None till you press 'C'
+
 
 pose = mp_pose.Pose(
     static_image_mode=False,
@@ -26,18 +27,18 @@ cap = cv2.VideoCapture(0)
 
 while True:
     current_metrics = None
-    success, frame = cap.read()
+    success, frame = cap.read()  #reading the latest frame
 
     if not success:
         break
 
-    # Flip like mirror
+    # Flip the camera frame like mirror
     frame = cv2.flip(frame, 1)
 
-    # Convert BGR to RGB for MediaPipe
+    # Convert BGR to RGB for MediaPipe; OpenCV reads frames in BGR order & MediaPipe expects in RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    results = pose.process(rgb_frame)
+    results = pose.process(rgb_frame) # can be None or 33 point object
 
     if results.pose_landmarks:
         mp_drawing.draw_landmarks(
@@ -73,7 +74,7 @@ while True:
             2,
         )
 
-    if baseline_metrics is None:
+    if baseline_metrics is None: #Calibarate
         cv2.putText(
             frame,
             "Press C to calibrate good posture",
@@ -103,12 +104,16 @@ while True:
         head_forward_diff = abs(
             current_metrics["nose_to_shoulder_x"] - baseline_metrics["nose_to_shoulder_x"]
         )
-
+        
+        head_tilt_angle = current_metrics["head_tilt_angle"]
+        head_tilt_diff = abs(current_metrics["head_tilt_angle"] - baseline_metrics["head_tilt_angle"])
+        bad_tilt = head_tilt_diff>10 
+        
         bad_shoulder = shoulder_diff > 0.03
         bad_head = head_forward_diff > 0.04
 
-        if bad_shoulder and bad_head:
-            posture_status = "BAD POSTURE: SHOULDERS + HEAD"
+        if bad_shoulder and bad_head and bad_tilt:
+            posture_status = "BAD POSTURE: SHOULDERS + HEAD + TILT"
             posture_color = (0, 0, 255)
 
         elif bad_shoulder:
@@ -118,12 +123,16 @@ while True:
         elif bad_head:
             posture_status = "BAD POSTURE: HEAD FORWARD"
             posture_color = (0, 0, 255)
+        
+        elif bad_tilt:
+            posture_status = "BAD POSTURE: HEAD TILT"
+            posture_color = (0, 0, 255)
 
         else:
             posture_status = "GOOD POSTURE"
             posture_color = (0, 255, 0)
             
-        is_bad_posture = bad_shoulder or bad_head
+        is_bad_posture = bad_shoulder or bad_head or bad_tilt
 
         if is_bad_posture:
             if bad_posture_start_time is None:
