@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Posture Monitor calibration/session data (user/machine specific)
+data/

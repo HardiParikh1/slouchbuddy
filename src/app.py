@@ -1,18 +1,29 @@
 import cv2
 import mediapipe as mp
 import time
+
+import config
 from pose_detection import PostureDetector
+from posture_analyzer import analyze_posture, get_shoulder_status
+from calibration import save_calibration, load_calibration
+from session_logger import SessionLogger
 # Main Program, runs the loop; one iteration per video frame.
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 bad_posture_start_time = None
-BAD_POSTURE_THRESHOLD_SECONDS = 10
 last_alert_time = None
-ALERT_COOLDOWN_SECONDS = 120
+last_break_time = time.time()
+
+SHOULDER_STATUS_COLORS = {
+    "GOOD": (0, 255, 0),
+    "WARNING": (0, 255, 255),
+    "BAD": (0, 0, 255),
+}
 
 posture_detector = PostureDetector()
-baseline_metrics = None #None till you press 'C'
+baseline_metrics = load_calibration()  # Loaded from calibration.json if it exists
+session_logger = SessionLogger()
 
 
 pose = mp_pose.Pose(
@@ -48,25 +59,14 @@ while True:
         )
 
         posture_detector.update_landmarks(results.pose_landmarks)
-        key_points = posture_detector.get_key_points(mp_pose)
         current_metrics = posture_detector.get_current_metrics(mp_pose)
-        
-        shoulder_imbalance = posture_detector.get_shoulder_imbalance(mp_pose)
-        if shoulder_imbalance < 0.02:
-            status = "GOOD"
-            color = (0, 255, 0)
 
-        elif shoulder_imbalance < 0.05:
-            status = "WARNING"
-            color = (0, 255, 255)
+        shoulder_status = get_shoulder_status(current_metrics["shoulder_imbalance"])
+        color = SHOULDER_STATUS_COLORS[shoulder_status]
 
-        else:
-            status = "BAD"
-            color = (0, 0, 255)
-            
         cv2.putText(
             frame,
-            f"Shoulders: {status} ({shoulder_imbalance:.3f})",
+            f"Shoulders: {shoulder_status} ({current_metrics['shoulder_imbalance']:.3f})",
             (30, 50),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
@@ -94,52 +94,53 @@ while True:
             (0, 255, 0),
             2,
         )
-        
-        
+
+
+    time_since_break = time.time() - last_break_time
+    minutes, seconds = divmod(int(time_since_break), 60)
+
+    if time_since_break >= config.BREAK_REMINDER_SECONDS:
+        cv2.putText(
+            frame,
+            "TAKE A BREAK! Press B once you have.",
+            (30, 330),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (0, 0, 255),
+            2,
+        )
+    else:
+        cv2.putText(
+            frame,
+            f"Time since last break: {minutes:02d}:{seconds:02d}",
+            (30, 330),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            2,
+        )
+
     if baseline_metrics and current_metrics:
-        shoulder_diff = abs(
-            current_metrics["shoulder_imbalance"] - baseline_metrics["shoulder_imbalance"]
-        )
+        analysis = analyze_posture(current_metrics, baseline_metrics)
+        posture_status = analysis.status
+        is_bad_posture = analysis.is_bad_posture
+        head_forward_diff = analysis.head_forward_diff
+        posture_score = analysis.posture_score
+        posture_color = (0, 0, 255) if is_bad_posture else (0, 255, 0)
 
-        head_forward_diff = abs(
-            current_metrics["nose_to_shoulder_x"] - baseline_metrics["nose_to_shoulder_x"]
-        )
-        
-        head_tilt_angle = current_metrics["head_tilt_angle"]
-        head_tilt_diff = abs(current_metrics["head_tilt_angle"] - baseline_metrics["head_tilt_angle"])
-        bad_tilt = head_tilt_diff>10 
-        
-        bad_shoulder = shoulder_diff > 0.03
-        bad_head = head_forward_diff > 0.04
-
-        if bad_shoulder and bad_head and bad_tilt:
-            posture_status = "BAD POSTURE: SHOULDERS + HEAD + TILT"
-            posture_color = (0, 0, 255)
-
-        elif bad_shoulder:
-            posture_status = "BAD POSTURE: SHOULDERS"
-            posture_color = (0, 0, 255)
-
-        elif bad_head:
-            posture_status = "BAD POSTURE: HEAD FORWARD"
-            posture_color = (0, 0, 255)
-        
-        elif bad_tilt:
-            posture_status = "BAD POSTURE: HEAD TILT"
-            posture_color = (0, 0, 255)
-
+        if posture_score >= 80:
+            score_color = (0, 255, 0)
+        elif posture_score >= 50:
+            score_color = (0, 255, 255)
         else:
-            posture_status = "GOOD POSTURE"
-            posture_color = (0, 255, 0)
-            
-        is_bad_posture = bad_shoulder or bad_head or bad_tilt
+            score_color = (0, 0, 255)
 
         if is_bad_posture:
             if bad_posture_start_time is None:
                 bad_posture_start_time = time.time()
 
             bad_duration = time.time() - bad_posture_start_time
-            
+
         else:
             bad_posture_start_time = None
             bad_duration = 0
@@ -171,29 +172,46 @@ while True:
             (255, 255, 255),
             2,
         )
-        
-        if bad_duration >= BAD_POSTURE_THRESHOLD_SECONDS:
+        cv2.putText(
+            frame,
+            f"Posture Score: {posture_score}/100",
+            (30, 250),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            score_color,
+            2,
+        )
+
+        if bad_duration >= config.BAD_POSTURE_THRESHOLD_SECONDS:
             cv2.putText(
                 frame,
                 "ALERT: Fix your posture!",
-                (30, 250),
+                (30, 290),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.9,
                 (0, 0, 255),
                 3,
             )
-    
-    
+
+        session_logger.log(posture_score, posture_status, bad_duration)
+
+
     cv2.imshow("Posture Monitor", frame)
     key = cv2.waitKey(1) & 0xFF
 
-    if key == ord("c"):
+    if key == ord("c") and current_metrics:
         baseline_metrics = current_metrics
+        save_calibration(baseline_metrics)
         print("Calibration saved:", baseline_metrics)
+
+    if key == ord("b"):
+        last_break_time = time.time()
+        print("Break taken, timer reset")
 
     if key == ord("q"):
         break
 
 cap.release()
 pose.close()
+session_logger.close()
 cv2.destroyAllWindows()
