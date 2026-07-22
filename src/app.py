@@ -7,6 +7,7 @@ from pose_detection import PostureDetector
 from posture_analyzer import analyze_posture, get_shoulder_status
 from calibration import save_calibration, load_calibration
 from session_logger import SessionLogger
+from notifications import alert_bad_posture
 # Main Program, runs the loop; one iteration per video frame.
 
 mp_pose = mp.solutions.pose
@@ -192,6 +193,13 @@ while True:
                 (0, 0, 255),
                 3,
             )
+
+            if (
+                last_alert_time is None
+                or time.time() - last_alert_time >= config.ALERT_COOLDOWN_SECONDS
+            ):
+                alert_bad_posture(posture_status, posture_score)
+                last_alert_time = time.time()
 
         session_logger.log(posture_score, posture_status, bad_duration)
 
