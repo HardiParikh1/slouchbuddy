@@ -1,10 +1,11 @@
 # Slouchbuddy 🐨
 
-[![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![CI](https://github.com/HardiParikh1/slouchbuddy/actions/workflows/ci.yml/badge.svg)](https://github.com/HardiParikh1/slouchbuddy/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/slouchbuddy)](https://pypi.org/project/slouchbuddy/)
 
 **Your slouch-fixing desk buddy.** A real-time posture coach for people who work from home: it watches you through your webcam, learns what *your* good posture looks like, and an animated koala in your menu bar nudges you (kindly) when you've been slouching for too long.
 
-![The Slouchbuddy dashboard](docs/dashboard.png)
+![The Slouchbuddy dashboard](https://raw.githubusercontent.com/HardiParikh1/slouchbuddy/main/docs/dashboard.png)
 
 ## Why I built this
 
@@ -32,10 +33,10 @@ It started as a webcam experiment and grew into a small menu bar app, an analyti
 Requires Python 3.9-3.12 and a webcam.
 
 ```bash
-pip install git+https://github.com/HardiParikh1/posture-monitor.git
+pip install slouchbuddy
 ```
 
-From a clone: `pip install .`, or `pip install -e ".[dev]"` for development.
+Or straight from GitHub: `pip install git+https://github.com/HardiParikh1/slouchbuddy.git`. From a clone: `pip install .`, or `pip install -e ".[dev]"` for development.
 
 ## Usage
 
@@ -57,7 +58,7 @@ On macOS the koala lives **only in the menu bar**, animated next to your live sc
 
 On Windows and Linux there's no menu bar koala, so `slouchbuddy` opens a small koala card in the top-right corner of your screen instead (drag it anywhere, right-click for the same menu).
 
-The koala is drawn entirely in code ([`koala.py`](src/slouchbuddy/koala.py)), so there are no image assets, and its personality is a small, tested state machine ([`buddy_brain.py`](src/slouchbuddy/buddy_brain.py)): it waits before commenting, doesn't repeat itself, and only praises a recovery that was worth praising.
+The koala is drawn entirely in code ([`koala.py`](https://github.com/HardiParikh1/slouchbuddy/blob/main/src/slouchbuddy/koala.py)), so there are no image assets, and its personality is a small, tested state machine ([`buddy_brain.py`](https://github.com/HardiParikh1/slouchbuddy/blob/main/src/slouchbuddy/buddy_brain.py)): it waits before commenting, doesn't repeat itself, and only praises a recovery that was worth praising.
 
 ### The dashboard
 
@@ -69,7 +70,7 @@ The koala is drawn entirely in code ([`koala.py`](src/slouchbuddy/koala.py)), so
 
 ### Alert sound
 
-Alerts play a soft two-note chime. Hear the options with `slouchbuddy test-sound chime` (or `beep`, `Glass`, `Pop`, `Ping`, ...) and choose one with `ALERT_SOUND` in [`config.py`](src/slouchbuddy/config.py): `"chime"`, `"beep"`, `"off"`, or the name of a macOS system sound.
+Alerts play a soft two-note chime. Hear the options with `slouchbuddy test-sound chime` (or `beep`, `Glass`, `Pop`, `Ping`, ...) and choose one with `ALERT_SOUND` in [`config.py`](https://github.com/HardiParikh1/slouchbuddy/blob/main/src/slouchbuddy/config.py): `"chime"`, `"beep"`, `"off"`, or the name of a macOS system sound.
 
 ### Windows and Linux
 
@@ -89,7 +90,7 @@ webcam frame -> MediaPipe Pose (33 landmarks) -> PostureDetector (metrics)
              -> SessionLogger (CSV) -> dashboard
 ```
 
-The camera runs in a background process; the menu bar app and the koala card are thin front ends that read its status and send it commands (calibrate, pause, ...) through small files ([`ipc.py`](src/slouchbuddy/ipc.py)).
+The camera runs in a background process; the menu bar app and the koala card are thin front ends that read its status and send it commands (calibrate, pause, ...) through small files ([`ipc.py`](https://github.com/HardiParikh1/slouchbuddy/blob/main/src/slouchbuddy/ipc.py)).
 
 | Module | Responsibility |
 | --- | --- |
@@ -111,7 +112,7 @@ Design notes:
 - Metrics are compared against *your* baseline rather than fixed angles, because a laptop camera's height and tilt change what "upright" looks like in the frame.
 - Each score factor starts losing points only once it crosses its threshold and bottoms out at 2x the threshold, so small natural movement doesn't tank the score.
 - Anything with timing or decisions (alerts, the koala's mood, wake detection, dashboard aggregation) is a pure function or state machine with an injectable clock, so it's unit-tested without a camera or a display.
-- All thresholds live in [`config.py`](src/slouchbuddy/config.py).
+- All thresholds live in [`config.py`](https://github.com/HardiParikh1/slouchbuddy/blob/main/src/slouchbuddy/config.py).
 
 ## Tests
 
