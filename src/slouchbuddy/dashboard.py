@@ -4,11 +4,12 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-import config
-import dashboard_data as data
-import dashboard_theme as theme_mod
+from slouchbuddy import config
+from slouchbuddy import dashboard_art as art
+from slouchbuddy import dashboard_data as data
+from slouchbuddy import dashboard_theme as theme_mod
 
-st.set_page_config(page_title="Posture Monitor", page_icon="🧍", layout="wide")
+st.set_page_config(page_title="Slouchbuddy", page_icon="🐨", layout="wide")
 
 
 def stat_card(label, value, sub=None, status_key=None, theme=None):
@@ -97,7 +98,7 @@ def top_issues_chart(reason_counts, theme):
             x=values,
             y=labels,
             orientation="h",
-            marker=dict(color=theme["series_1"]),
+            marker=dict(color=theme["series_1"], cornerradius=10),
             text=values,
             textposition="outside",
             textfont=dict(color=theme["ink_secondary"]),
@@ -134,28 +135,51 @@ def session_trend_chart(session_df, theme):
     return fig
 
 
+def hero(avg_score):
+    mood, quip = art.hero_message(avg_score)
+    st.markdown(
+        '<div class="sb-hero">'
+        f'<img class="sb-koala" alt="" src="{art.koala_uri(mood)}">'
+        '<div class="sb-hero-text">'
+        '<div class="sb-title">Slouch<span>buddy</span></div>'
+        '<div class="sb-subtitle">Your cosy corner for desk-posture stats.</div>'
+        f'<div class="sb-bubble">{quip}</div>'
+        "</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def footer():
+    st.markdown(
+        f'<div class="sb-footer"><img alt="" src="{art.koala_uri("sleeping", 96)}">'
+        "Sit tall, sip water, take a stretch. See you tomorrow!</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def main():
     with st.sidebar:
         st.markdown("### Settings")
-        mode = st.radio("Theme", ["Light", "Dark"], horizontal=True)
+        default_dark = str(st.query_params.get("theme", "")).lower() == "dark"  # e.g. ...:8501/?theme=dark
+        mode = st.radio("Theme", ["Light", "Dark"], index=int(default_dark), horizontal=True)
         st.markdown("---")
 
     theme = theme_mod.get_theme(mode)
     st.markdown(theme_mod.inject_css(theme), unsafe_allow_html=True)
 
-    st.markdown('<div class="pm-title">Posture Monitor</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="pm-subtitle">Session history and posture trends from your desk setup.</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown(art.leaves_html(), unsafe_allow_html=True)
 
     files = data.list_session_files()
 
     if not files:
-        st.info(
-            f"No session data yet. Run `python src/app.py` and calibrate to start "
-            f"tracking — logs will appear in `{config.SESSIONS_DIR}/`."
+        hero(None)
+        st.markdown(
+            f'<div class="pm-card sb-empty"><img alt="" src="{art.koala_uri("sleeping", 200)}">'
+            "<p>No sessions yet. Run <b>slouchbuddy</b>, calibrate, and your posture "
+            f"story will start growing here.<br>(Logs appear in <code>{config.SESSIONS_DIR}/</code>.)</p></div>",
+            unsafe_allow_html=True,
         )
+        footer()
         return
 
     with st.sidebar:
@@ -173,25 +197,27 @@ def main():
     session_summary = data.session_level_summary(all_df)
 
     if df.empty:
+        hero(None)
         st.warning("Selected session has no data yet.")
         return
 
     avg_score = df["posture_score"].mean()
+    hero(avg_score)
     good_pct = (df["status"] == "GOOD POSTURE").sum() / len(df) * 100
     longest_bad_streak = df["bad_duration"].max()
     status_key, _ = theme_mod.score_status(avg_score)
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        stat_card("Average Score", f"{avg_score:.0f}/100", status_key=status_key, theme=theme)
+        stat_card("🌿 Average score", f"{avg_score:.0f}/100", status_key=status_key, theme=theme)
     with col2:
-        meter_card("Good Posture", good_pct, theme)
+        meter_card("🐨 Good posture", good_pct, theme)
     with col3:
-        stat_card("Longest Bad Streak", f"{longest_bad_streak:.0f}s", theme=theme)
+        stat_card("⏳ Longest bad streak", f"{longest_bad_streak:.0f}s", theme=theme)
     with col4:
-        stat_card("Sessions Tracked", f"{len(files)}", sub=f"{len(all_df):,} samples total", theme=theme)
+        stat_card("🌱 Sessions tracked", f"{len(files)}", sub=f"{len(all_df):,} samples total", theme=theme)
 
-    st.markdown('<div class="pm-section-title">Posture score over time</div>', unsafe_allow_html=True)
+    st.markdown('<div class="pm-section-title">🌿 Posture score over time</div>', unsafe_allow_html=True)
     first_day = df["timestamp"].min().date()
     last_day = df["timestamp"].max().date()
 
@@ -221,25 +247,25 @@ def main():
         st.info("No samples in this period. Pick another one.")
     else:
         st.plotly_chart(score_over_time_chart(agg, theme, view, start, end),
-                        use_container_width=True, config={"displayModeBar": False})
+                        width="stretch", config={"displayModeBar": False})
 
     col_left, col_right = st.columns(2)
 
     with col_left:
-        st.markdown('<div class="pm-section-title">Most frequent issues</div>', unsafe_allow_html=True)
+        st.markdown('<div class="pm-section-title">🍂 Most frequent issues</div>', unsafe_allow_html=True)
         reason_counts = data.extract_reason_counts(df["status"])
         fig = top_issues_chart(reason_counts, theme)
         if fig is None:
             st.markdown(
                 f'<div class="pm-card" style="color:{theme["ink_secondary"]};">'
-                "No posture issues logged in this selection. 🎉</div>",
+                "No posture issues logged in this selection. The koala is very proud of you. 🎉</div>",
                 unsafe_allow_html=True,
             )
         else:
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
     with col_right:
-        st.markdown('<div class="pm-section-title">Session-level trend</div>', unsafe_allow_html=True)
+        st.markdown('<div class="pm-section-title">🪵 Session-level trend</div>', unsafe_allow_html=True)
         if len(session_summary) < 2:
             st.markdown(
                 f'<div class="pm-card" style="color:{theme["ink_secondary"]};">'
@@ -248,16 +274,18 @@ def main():
             )
         else:
             st.plotly_chart(
-                session_trend_chart(session_summary, theme), use_container_width=True,
+                session_trend_chart(session_summary, theme), width="stretch",
                 config={"displayModeBar": False},
             )
 
     with st.expander("Raw session data"):
         st.dataframe(
             df[["timestamp", "session_label", "posture_score", "status", "bad_duration"]],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
+
+    footer()
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-from wake_reminder import WakeDetector
+from slouchbuddy.wake_reminder import WakeDetector
 
 
 class Clock:

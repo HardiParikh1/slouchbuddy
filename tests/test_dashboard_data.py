@@ -1,6 +1,6 @@
 import pandas as pd
 
-from dashboard_data import extract_reason_counts, load_all_sessions, session_level_summary
+from slouchbuddy.dashboard_data import extract_reason_counts, load_all_sessions, session_level_summary
 
 
 def make_df():
@@ -45,7 +45,7 @@ def _samples(start, n, step_minutes, score=80):
 
 
 def test_aggregate_averages_within_bucket_and_drops_empty_buckets():
-    from dashboard_data import aggregate_scores
+    from slouchbuddy.dashboard_data import aggregate_scores
 
     df = pd.concat([_samples("2026-03-01 10:00", 3, 1, 90), _samples("2026-03-01 14:00", 2, 1, 50)])
     out, start, end = aggregate_scores(df, "Day", "2026-03-01")
@@ -55,7 +55,7 @@ def test_aggregate_averages_within_bucket_and_drops_empty_buckets():
 
 
 def test_aggregate_only_includes_the_selected_period():
-    from dashboard_data import aggregate_scores
+    from slouchbuddy.dashboard_data import aggregate_scores
 
     df = pd.concat([_samples("2025-01-15", 5, 1, 10), _samples("2026-06-01", 5, 1, 70)])
     assert list(aggregate_scores(df, "Month", "2026-06-20")[0]["avg_score"]) == [70]
@@ -64,7 +64,7 @@ def test_aggregate_only_includes_the_selected_period():
 
 
 def test_period_windows_are_calendar_aligned():
-    from dashboard_data import period_window
+    from slouchbuddy.dashboard_data import period_window
 
     ts = pd.Timestamp
     assert period_window("Week", "2026-11-22") == (ts("2026-11-16"), ts("2026-11-23"))  # Mon-Sun
@@ -73,7 +73,7 @@ def test_period_windows_are_calendar_aligned():
 
 
 def test_aggregate_empty():
-    from dashboard_data import aggregate_scores
+    from slouchbuddy.dashboard_data import aggregate_scores
 
     out, _, _ = aggregate_scores(pd.DataFrame(columns=["timestamp", "posture_score"]), "Day", "2026-01-01")
     assert out.empty

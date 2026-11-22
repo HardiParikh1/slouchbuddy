@@ -4,11 +4,11 @@ from collections import Counter
 
 import pandas as pd
 
-import config
+from slouchbuddy import config
 
 
 def list_session_files():
-    resolved_dir = os.path.join(config.PROJECT_ROOT, config.SESSIONS_DIR)
+    resolved_dir = os.path.join(config.DATA_ROOT, config.SESSIONS_DIR)
     files = glob.glob(os.path.join(resolved_dir, "session_*.csv"))
     return sorted(files, key=os.path.getmtime, reverse=True)
 

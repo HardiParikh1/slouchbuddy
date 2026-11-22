@@ -1,14 +1,14 @@
 import json
 import os
 
-import config
-from config import CALIBRATION_FILE
+from slouchbuddy import config
+from slouchbuddy.config import CALIBRATION_FILE
 
 
 def _resolve_path(path):
     if os.path.isabs(path):
         return path
-    return os.path.join(config.PROJECT_ROOT, path)
+    return os.path.join(config.DATA_ROOT, path)
 
 
 def save_calibration(metrics, path=CALIBRATION_FILE):

@@ -1,4 +1,4 @@
-from alert_tracker import BadPostureTracker
+from slouchbuddy.alert_tracker import BadPostureTracker
 
 
 class FakeClock:

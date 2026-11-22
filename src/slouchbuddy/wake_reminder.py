@@ -1,18 +1,11 @@
-"""Tiny background reminder: nudges you to sit properly at login and every time the
-laptop wakes from sleep. It never touches the camera.
-
-Run directly (`python src/wake_reminder.py`) or install it as a login item with
-`scripts/install_launch_agent.sh`.
-"""
+"""Wake-from-sleep detection and the reminder text used by the menu bar app."""
 import time
-
-from notifications import send_notification
 
 TICK_SECONDS = 5
 # If the wall clock jumps by more than this between ticks, the machine was asleep.
 WAKE_GAP_SECONDS = 30
 
-REMINDER_TITLE = "Posture Monitor"
+REMINDER_TITLE = "Slouchbuddy"
 REMINDER_MESSAGE = "Welcome back! Sit up, relax your shoulders and bring your screen to eye level."
 
 
@@ -31,19 +24,3 @@ class WakeDetector:
         woke = now - self._last > self._tick + self._gap
         self._last = now
         return woke
-
-
-def main():
-    send_notification(REMINDER_TITLE, REMINDER_MESSAGE)  # login / start
-    detector = WakeDetector()
-    while True:
-        time.sleep(TICK_SECONDS)
-        if detector.check():
-            send_notification(REMINDER_TITLE, REMINDER_MESSAGE)
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        pass

@@ -1,7 +1,7 @@
 import pytest
 
-import config
-from posture_analyzer import analyze_posture, calculate_posture_score, get_shoulder_status
+from slouchbuddy import config
+from slouchbuddy.posture_analyzer import analyze_posture, calculate_posture_score, get_shoulder_status
 
 BASELINE = {
     "shoulder_imbalance": 0.01,

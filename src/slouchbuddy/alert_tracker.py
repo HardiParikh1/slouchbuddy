@@ -1,6 +1,6 @@
 import time
 
-import config
+from slouchbuddy import config
 
 
 class BadPostureTracker:

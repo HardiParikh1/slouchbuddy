@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-import ipc
+from slouchbuddy import ipc
 
 
 def test_status_roundtrip(tmp_path):

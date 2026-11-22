@@ -1,29 +1,24 @@
-"""macOS menu bar app: runs the posture monitor in the background and shows the live
-score in the menu bar. Click it to open the live camera view, calibrate, pause, etc.
+"""macOS menu bar app: an animated koala in the menu bar that reacts to your posture.
 
-    python src/menubar.py
+The koala lives only in the menu bar (no window on screen); anything it has to say arrives
+as a notification. Click it to calibrate, pause, open the camera view or the dashboard.
+
+    slouchbuddy menubar
 """
 import os
 import subprocess
-import sys
+import time
 import webbrowser
 
 import rumps
 
-import ipc
-from wake_reminder import REMINDER_MESSAGE, REMINDER_TITLE, TICK_SECONDS, WakeDetector
+from slouchbuddy import buddy_brain, config, ipc, koala, launcher
+from slouchbuddy.buddy_brain import BuddyBrain
+from slouchbuddy.notifications import send_notification
+from slouchbuddy.wake_reminder import REMINDER_MESSAGE, TICK_SECONDS, WakeDetector
 
-SRC_DIR = os.path.dirname(os.path.abspath(__file__))
-DASHBOARD_PORT = 8501
+NOTIFICATION_TITLE = "Slouchbuddy 🐨"
 
-ICONS = {
-    "good": "🟢",
-    "bad": "🔴",
-    "no_pose": "👀",
-    "uncalibrated": "🎯",
-    "paused": "⏸",
-    "camera_error": "📷",
-}
 STATE_TEXT = {
     "good": "Good posture",
     "bad": "Bad posture",
@@ -35,18 +30,23 @@ STATE_TEXT = {
 
 
 def title_for(status):
-    """Menu bar text for a status dict (None means the monitor isn't running yet)."""
-    if status is None:
-        return "⏳"
-    icon = ICONS.get(status["state"], "❔")
-    if status["state"] in ("good", "bad") and status.get("score") is not None:
-        return f'{icon} {status["score"]}'
-    return icon
+    """Text shown next to the koala in the menu bar: the live score, when there is one."""
+    if status and status.get("state") in ("good", "bad") and status.get("score") is not None:
+        return f' {status["score"]}'
+    return ""
 
 
 class PostureMenuBar(rumps.App):
     def __init__(self):
-        super().__init__("Posture Monitor", title="⏳", quit_button=None)
+        icon_dir = os.path.join(config.DATA_ROOT, "data", "icons")
+        self.frames = {mood: koala.icon_frame_paths(mood, icon_dir) for mood in koala.MOODS}
+        super().__init__(
+            "Slouchbuddy", title="", icon=self.frames[buddy_brain.SLEEPING][0], quit_button=None
+        )
+        self.brain = BuddyBrain()
+        self.mood = buddy_brain.SLEEPING
+        self.comment = None
+        self.comment_until = 0
         self.status_item = rumps.MenuItem("Starting…")
         self.view_item = rumps.MenuItem("Show live view", callback=self.toggle_view)
         self.pause_item = rumps.MenuItem("Pause monitoring", callback=self.toggle_pause)
@@ -59,7 +59,7 @@ class PostureMenuBar(rumps.App):
             self.pause_item,
             None,
             rumps.MenuItem("Open dashboard", callback=self.open_dashboard),
-            rumps.MenuItem("Quit Posture Monitor", callback=self.quit),
+            rumps.MenuItem("Quit Slouchbuddy", callback=self.quit),
         ]
 
         self.monitor = None
@@ -69,13 +69,13 @@ class PostureMenuBar(rumps.App):
 
         self.refresh_timer = rumps.Timer(self.refresh, 1)
         self.refresh_timer.start()
+        self.animation_timer = rumps.Timer(self.animate, koala.FRAME_SECONDS)
+        self.animation_timer.start()
         self.wake_timer = rumps.Timer(self.check_wake, TICK_SECONDS)
         self.wake_timer.start()
 
     def start_monitor(self):
-        self.monitor = subprocess.Popen(
-            [sys.executable, os.path.join(SRC_DIR, "app.py"), "--background"], cwd=SRC_DIR
-        )
+        self.monitor = launcher.spawn_monitor()
 
     def refresh(self, _):
         if self.monitor is not None and self.monitor.poll() is not None:
@@ -83,6 +83,13 @@ class PostureMenuBar(rumps.App):
 
         status = ipc.read_status()
         self.title = title_for(status)
+
+        view = self.brain.update(status)
+        self.mood = view.mood
+        if view.message:
+            self.comment, self.comment_until = view.message, time.time() + 45
+            send_notification(NOTIFICATION_TITLE, view.message)
+
         if status is None:
             self.status_item.title = "Starting…"
             return
@@ -94,14 +101,20 @@ class PostureMenuBar(rumps.App):
             text = f'Good posture ({status["score"]}/100)'
         if status.get("break_overdue"):
             text += " · take a break!"
+        if self.comment and time.time() < self.comment_until:
+            text = f"🐨 {self.comment}"
         self.status_item.title = text
 
         self.view_item.title = "Hide live view" if status.get("window_visible") else "Show live view"
         self.pause_item.title = "Resume monitoring" if status["state"] == "paused" else "Pause monitoring"
 
+    def animate(self, _):
+        frames = self.frames[self.mood]
+        self.icon = frames[int(time.time() / koala.FRAME_SECONDS) % len(frames)]
+
     def check_wake(self, _):
         if self.wake.check():
-            rumps.notification(REMINDER_TITLE, "", REMINDER_MESSAGE)
+            send_notification(NOTIFICATION_TITLE, REMINDER_MESSAGE)
 
     def toggle_view(self, _):
         ipc.send_command("toggle")
@@ -112,30 +125,29 @@ class PostureMenuBar(rumps.App):
 
     def open_dashboard(self, _):
         if self.dashboard is None or self.dashboard.poll() is not None:
-            self.dashboard = subprocess.Popen(
-                [
-                    sys.executable, "-m", "streamlit", "run", os.path.join(SRC_DIR, "dashboard.py"),
-                    "--server.headless", "true", "--server.port", str(DASHBOARD_PORT),
-                ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        webbrowser.open(f"http://localhost:{DASHBOARD_PORT}")
+            self.dashboard = launcher.spawn_dashboard()
+        webbrowser.open(f"http://localhost:{launcher.DASHBOARD_PORT}")
 
     def quit(self, _):
         ipc.send_command("quit")
-        for proc in (self.monitor, self.dashboard):
+        for proc in (self.dashboard,):
             if proc is not None and proc.poll() is None:
-                try:
-                    proc.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    proc.terminate()
+                proc.terminate()
+        if self.monitor is not None and self.monitor.poll() is None:
+            try:
+                self.monitor.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                self.monitor.terminate()
         rumps.quit_application()
 
 
-if __name__ == "__main__":
+def main():
     # Menu bar only: no Dock icon.
     from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
 
     NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)
     PostureMenuBar().run()
+
+
+if __name__ == "__main__":
+    main()

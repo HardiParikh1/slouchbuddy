@@ -4,12 +4,12 @@ import os
 from collections import Counter
 from datetime import datetime
 
-import config
+from slouchbuddy import config
 
 
 def find_latest_session(sessions_dir=None):
     sessions_dir = sessions_dir or config.SESSIONS_DIR
-    resolved_dir = os.path.join(config.PROJECT_ROOT, sessions_dir)
+    resolved_dir = os.path.join(config.DATA_ROOT, sessions_dir)
 
     csv_files = glob.glob(os.path.join(resolved_dir, "session_*.csv"))
     if not csv_files:

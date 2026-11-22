@@ -1,7 +1,7 @@
-"""Posture Monitor: real-time webcam loop (one iteration per video frame).
+"""Slouchbuddy: real-time webcam loop (one iteration per video frame).
 
-    python src/app.py                 # foreground: live window, Q quits
-    python src/app.py --background    # runs hidden, controlled by the menu bar app (see menubar.py)
+    slouchbuddy run               # foreground: live window, Q quits
+    python -m slouchbuddy.app --background   # hidden; controlled by the menu bar app
 """
 import argparse
 import os
@@ -10,15 +10,15 @@ import time
 import cv2
 import mediapipe as mp
 
-import config
-import ipc
-import ui_overlay as ui
-from alert_tracker import BadPostureTracker
-from calibration import load_calibration, save_calibration
-from notifications import alert_bad_posture
-from pose_detection import PostureDetector
-from posture_analyzer import analyze_posture
-from session_logger import SessionLogger
+from slouchbuddy import config
+from slouchbuddy import ipc
+from slouchbuddy import ui_overlay as ui
+from slouchbuddy.alert_tracker import BadPostureTracker
+from slouchbuddy.calibration import load_calibration, save_calibration
+from slouchbuddy.notifications import alert_bad_posture, play_alert_sound
+from slouchbuddy.pose_detection import PostureDetector
+from slouchbuddy.posture_analyzer import analyze_posture
+from slouchbuddy.session_logger import SessionLogger
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -26,7 +26,7 @@ LANDMARK_SPEC = mp_drawing.DrawingSpec(color=(255, 255, 255), thickness=1, circl
 CONNECTION_SPEC = mp_drawing.DrawingSpec(color=(160, 160, 160), thickness=1)
 
 SHORTCUTS = [("C", "Calibrate"), ("B", "Break taken"), ("Q", "Quit")]
-WINDOW_NAME = "Posture Monitor"
+WINDOW_NAME = "Slouchbuddy"
 CAMERA_RETRY_SECONDS = 3
 HIDDEN_FRAME_DELAY = 0.05  # ~15 fps is plenty when nobody is looking at the window
 
@@ -186,7 +186,10 @@ def main(background=False):
                     if bad_duration >= tracker.threshold_seconds:
                         ui.draw_alert_toast(frame)
                 if should_alert:
-                    alert_bad_posture(analysis.status, analysis.posture_score)
+                    if background:
+                        play_alert_sound()  # the front end (koala) says what's wrong in its own words
+                    else:
+                        alert_bad_posture(analysis.status, analysis.posture_score)
 
                 session_logger.log(analysis.posture_score, analysis.status, bad_duration)
 
@@ -220,6 +223,6 @@ def main(background=False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Posture Monitor")
+    parser = argparse.ArgumentParser(description="Slouchbuddy")
     parser.add_argument("--background", action="store_true", help="run hidden, controlled via the menu bar app")
     main(background=parser.parse_args().background)

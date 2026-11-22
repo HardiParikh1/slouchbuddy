@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime
 
-import config
+from slouchbuddy import config
 
 
 class SessionLogger:
@@ -12,7 +12,7 @@ class SessionLogger:
         self.interval_seconds = interval_seconds or config.SESSION_LOG_INTERVAL_SECONDS
         self._last_log_time = 0
 
-        resolved_dir = os.path.join(config.PROJECT_ROOT, sessions_dir)
+        resolved_dir = os.path.join(config.DATA_ROOT, sessions_dir)
         os.makedirs(resolved_dir, exist_ok=True)
 
         filename = datetime.now().strftime("session_%Y%m%d_%H%M%S.csv")

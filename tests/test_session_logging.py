@@ -2,8 +2,8 @@ import csv
 
 import pytest
 
-from session_logger import SessionLogger
-from session_summary import load_rows, summarize
+from slouchbuddy.session_logger import SessionLogger
+from slouchbuddy.session_summary import load_rows, summarize
 
 
 def write_session(tmp_path, entries):

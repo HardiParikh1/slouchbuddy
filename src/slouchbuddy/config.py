@@ -1,9 +1,33 @@
 import os
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _find_data_root():
+    """Where calibration, session logs and IPC files live.
+
+    1. $SLOUCHBUDDY_HOME if set.
+    2. The repo root when running from a source checkout (keeps existing ./data).
+    3. ~/.slouchbuddy for a normal pip install.
+    """
+    override = os.environ.get("SLOUCHBUDDY_HOME")
+    if override:
+        return os.path.abspath(os.path.expanduser(override))
+
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if os.path.exists(os.path.join(repo_root, "pyproject.toml")):
+        return repo_root
+
+    return os.path.join(os.path.expanduser("~"), ".slouchbuddy")
+
+
+DATA_ROOT = _find_data_root()
 
 BAD_POSTURE_THRESHOLD_SECONDS = 10
 ALERT_COOLDOWN_SECONDS = 120
+
+# Sound played with a posture alert: "chime" (soft two-note bell), "beep", "off", or the name of a
+# macOS system sound ("Glass", "Pop", "Ping", "Tink", "Hero", "Purr", "Bottle"...).
+ALERT_SOUND = "chime"
 
 # Remind to take a break every 45-60 min of sitting; default in the middle.
 BREAK_REMINDER_SECONDS = 50 * 60

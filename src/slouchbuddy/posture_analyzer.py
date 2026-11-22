@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import config
+from slouchbuddy import config
 
 
 @dataclass

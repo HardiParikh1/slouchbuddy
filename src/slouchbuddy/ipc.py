@@ -7,13 +7,13 @@ import json
 import os
 import time
 
-import config
+from slouchbuddy import config
 
 COMMANDS = {"show", "hide", "toggle", "calibrate", "break", "pause", "resume", "quit"}
 
 
 def _dir(base_dir=None):
-    path = base_dir or os.path.join(config.PROJECT_ROOT, "data")
+    path = base_dir or os.path.join(config.DATA_ROOT, "data")
     os.makedirs(path, exist_ok=True)
     return path
 
@@ -23,7 +23,10 @@ def write_status(status, base_dir=None):
     tmp = path + ".tmp"
     with open(tmp, "w") as f:
         json.dump({**status, "updated": time.time()}, f)
-    os.replace(tmp, path)  # atomic: readers never see a half-written file
+    try:
+        os.replace(tmp, path)  # atomic: readers never see a half-written file
+    except PermissionError:
+        pass  # Windows: a reader had the file open; the next write (1s later) will land
 
 
 def read_status(base_dir=None, max_age=5.0):

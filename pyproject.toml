@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slouchbuddy"
+dynamic = ["version"]
+description = "Slouchbuddy: real-time desk posture coaching from your webcam, with calibration, alerts and an analytics dashboard."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9,<3.13"
+keywords = ["posture", "computer-vision", "mediapipe", "opencv", "health"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video :: Capture",
+    "Intended Audience :: End Users/Desktop",
+]
+dependencies = [
+    "mediapipe>=0.10.14,<=0.10.21",  # newer releases removed the mp.solutions API
+    "pillow>=10.1",
+    "opencv-contrib-python>=4.8",
+    "numpy>=1.26,<2",
+    "pandas>=2.0",
+    "plotly>=5.18",
+    "streamlit>=1.30",
+    "sounddevice>=0.4",
+    "plyer>=2.1",
+    "rumps>=0.4; sys_platform == 'darwin'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.urls]
+Homepage = "https://github.com/HardiParikh1/posture-monitor"
+
+[project.scripts]
+slouchbuddy = "slouchbuddy.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "slouchbuddy.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

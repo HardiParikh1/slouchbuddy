@@ -1,6 +1,6 @@
 import json
 
-from calibration import load_calibration, save_calibration
+from slouchbuddy.calibration import load_calibration, save_calibration
 
 
 def test_load_returns_none_when_missing(tmp_path):
