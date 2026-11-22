@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 
 from slouchbuddy import notifications
@@ -21,14 +23,14 @@ def test_chime_has_two_strikes():
 
 def test_off_plays_nothing(monkeypatch):
     called = []
-    monkeypatch.setattr(notifications.sd, "play", lambda *a, **k: called.append(a))
+    monkeypatch.setattr(notifications, "sd", SimpleNamespace(play=lambda *a, **k: called.append(a)))
     notifications.play_alert_sound("off")
     assert called == []
 
 
 def test_chime_and_beep_go_to_the_sound_device(monkeypatch):
     called = []
-    monkeypatch.setattr(notifications.sd, "play", lambda *a, **k: called.append(a))
+    monkeypatch.setattr(notifications, "sd", SimpleNamespace(play=lambda *a, **k: called.append(a)))
     monkeypatch.setattr(notifications, "_macos_sound_path", lambda name: None)
     notifications.play_alert_sound("chime")
     notifications.play_alert_sound("beep")
@@ -41,3 +43,9 @@ def test_macos_system_sound_uses_afplay(monkeypatch):
     monkeypatch.setattr(notifications.subprocess, "Popen", lambda args: popen.append(args))
     notifications.play_alert_sound("Glass")
     assert popen == [["afplay", "/x/Glass.aiff"]]
+
+
+def test_missing_sound_library_is_silent_not_a_crash(monkeypatch):
+    monkeypatch.setattr(notifications, "sd", None)
+    monkeypatch.setattr(notifications, "_macos_sound_path", lambda name: None)
+    notifications.play_alert_sound("chime")  # must not raise

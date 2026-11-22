@@ -3,7 +3,11 @@ import platform
 import subprocess
 
 import numpy as np
-import sounddevice as sd
+
+try:
+    import sounddevice as sd
+except (ImportError, OSError):  # package or PortAudio missing (e.g. headless Linux): alerts go silent
+    sd = None
 
 from slouchbuddy import config
 
@@ -81,6 +85,8 @@ def play_alert_sound(name=None):
         system_sound = _macos_sound_path(name)
         if system_sound:
             subprocess.Popen(["afplay", system_sound])
+            return
+        if sd is None:
             return
         tone, sample_rate = _generate_beep() if str(name).lower() == "beep" else _generate_chime()
         sd.play(tone, sample_rate)
