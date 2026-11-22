@@ -60,6 +60,16 @@ CAMERA_INDEX=1 python src/app.py
 streamlit run src/dashboard.py
 ```
 
+### Menu bar app (macOS)
+
+Runs the monitor in the background and shows your live score in the menu bar (🟢 91 / 🔴 40). Click it to open the live camera view, calibrate, take a break, pause (releases the camera) or open the dashboard. It also sends a "sit up" notification every time the laptop wakes.
+
+```bash
+python src/menubar.py                    # run now
+sh scripts/install_launch_agent.sh       # start at every login
+sh scripts/uninstall_launch_agent.sh     # remove
+```
+
 ## Tests
 
 ```bash

@@ -136,6 +136,13 @@ def inject_css(theme):
         font-weight: 700;
         margin: 1.8rem 0 0.6rem 0;
     }}
+    /* Streamlit's base theme is dark, so widget text is white; force it to follow ours
+       in the main area (otherwise the time-range radio labels are invisible on light). */
+    [data-testid="stMain"] [data-testid="stRadio"] label,
+    [data-testid="stMain"] [data-testid="stRadio"] label p,
+    [data-testid="stMain"] [data-testid="stRadio"] label span {{
+        color: {theme["ink_primary"]} !important;
+    }}
     .pm-meter-track {{
         background-color: {theme["gridline"]};
         border-radius: 999px;

@@ -1,5 +1,6 @@
 import os
 
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -49,7 +50,11 @@ def meter_card(label, pct, theme):
     )
 
 
-def score_over_time_chart(df, theme):
+TICK_FORMATS = {"Day": "%H:%M", "Week": "%a %d", "Month": "%b %d", "Year": "%b"}
+
+
+def score_over_time_chart(agg, theme, view, start, end):
+    """agg: output of dashboard_data.aggregate_scores (average score per time bucket)."""
     fig = go.Figure()
     fig.add_hline(y=80, line_dash="dot", line_color=theme["baseline"], line_width=1,
                    annotation_text="Good (80)", annotation_font_color=theme["ink_muted"],
@@ -59,19 +64,22 @@ def score_over_time_chart(df, theme):
                    annotation_font_size=11)
     fig.add_trace(
         go.Scatter(
-            x=df["timestamp"],
-            y=df["posture_score"],
-            mode="lines",
-            line=dict(color=theme["series_1"], width=2, shape="spline", smoothing=0.3),
-            fill="tozeroy",
-            fillcolor=theme["series_1_fill"],
-            hovertemplate="%{y} / 100<extra></extra>",
+            x=agg["timestamp"],
+            y=agg["avg_score"],
+            mode="lines+markers",
+            line=dict(color=theme["series_1"], width=2, shape="linear"),
+            marker=dict(size=7, color=theme["series_1"]),
+            customdata=agg["samples"],
+            hovertemplate="%{y:.0f} / 100 avg (%{customdata} samples)<extra></extra>",
         )
     )
     layout = theme_mod.plotly_layout(theme, height=320)
     layout["yaxis"]["range"] = [0, 105]
     layout["xaxis"]["title"] = None
     layout["yaxis"]["title"] = None
+    # Pin the axis to the selected period so a lone point can't zoom into microseconds.
+    layout["xaxis"]["range"] = [start.isoformat(), end.isoformat()]
+    layout["xaxis"]["tickformat"] = TICK_FORMATS[view]
     layout["margin"] = dict(l=10, r=90, t=10, b=10)
     fig.update_layout(**layout)
     return fig
@@ -184,7 +192,36 @@ def main():
         stat_card("Sessions Tracked", f"{len(files)}", sub=f"{len(all_df):,} samples total", theme=theme)
 
     st.markdown('<div class="pm-section-title">Posture score over time</div>', unsafe_allow_html=True)
-    st.plotly_chart(score_over_time_chart(df, theme), use_container_width=True, config={"displayModeBar": False})
+    first_day = df["timestamp"].min().date()
+    last_day = df["timestamp"].max().date()
+
+    view_col, pick_col, _ = st.columns([3, 2, 3])
+    with view_col:
+        view = st.radio("View by", data.SCORE_VIEWS, horizontal=True, label_visibility="collapsed")
+    with pick_col:
+        if view in ("Day", "Week"):
+            anchor = st.date_input(
+                "Day" if view == "Day" else "Any day in the week",
+                value=last_day, min_value=first_day, max_value=last_day,
+                label_visibility="collapsed",
+            )
+        elif view == "Month":
+            months = pd.period_range(first_day, last_day, freq="M")[::-1]
+            anchor = st.selectbox(
+                "Month", months, format_func=lambda m: m.strftime("%B %Y"), label_visibility="collapsed"
+            ).start_time
+        else:
+            years = list(range(last_day.year, first_day.year - 1, -1))
+            anchor = pd.Timestamp(
+                year=st.selectbox("Year", years, label_visibility="collapsed"), month=1, day=1
+            )
+
+    agg, start, end = data.aggregate_scores(df, view, anchor)
+    if agg.empty:
+        st.info("No samples in this period. Pick another one.")
+    else:
+        st.plotly_chart(score_over_time_chart(agg, theme, view, start, end),
+                        use_container_width=True, config={"displayModeBar": False})
 
     col_left, col_right = st.columns(2)
 
