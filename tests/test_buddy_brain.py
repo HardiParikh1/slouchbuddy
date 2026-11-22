@@ -118,3 +118,34 @@ def test_uncalibrated_explains_calibration_once():
     first = brain.update({"state": "uncalibrated"})
     assert first.mood == CURIOUS and "Calibrate" in first.message
     assert brain.update({"state": "uncalibrated"}).message is None
+
+
+def test_only_real_nudges_ask_for_the_alert_sound():
+    # slouch comment -> sound
+    brain, clock = make()
+    brain.update(bad())
+    clock.now += 6
+    slouch = brain.update(bad())
+    assert slouch.message and slouch.alert
+
+    # praise, milestones and calibration prompts stay quiet
+    brain, clock = make()
+    brain.update(bad())
+    clock.now += 12
+    brain.update(bad())
+    clock.now += 1
+    praise = brain.update(good())
+    assert praise.message and not praise.alert
+
+    brain, clock = make()
+    brain.update(good())
+    clock.now += 15 * 60 + 1
+    milestone = brain.update(good())
+    assert milestone.message and not milestone.alert
+
+    brain, _ = make()
+    assert not brain.update({"state": "uncalibrated"}).alert
+
+    # break reminder -> sound
+    brain, _ = make()
+    assert brain.update(good(break_overdue=True)).alert

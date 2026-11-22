@@ -16,6 +16,7 @@ from PIL import Image, ImageTk
 from slouchbuddy import buddy_brain as brain_mod
 from slouchbuddy import ipc, koala, launcher
 from slouchbuddy.buddy_brain import BuddyBrain
+from slouchbuddy.notifications import play_alert_sound
 
 KOALA_SIZE = 170
 WIDTH = 230
@@ -123,6 +124,8 @@ class BuddyWindow:
         if view.message:
             self.message = view.message
             self.message_until = time.time() + MESSAGE_SECONDS
+            if view.alert:
+                play_alert_sound()  # the bubble and the chime appear together
         self.root.after(POLL_MS, self._poll)
 
     def _animate(self):

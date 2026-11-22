@@ -14,7 +14,7 @@ import rumps
 
 from slouchbuddy import buddy_brain, config, ipc, koala, launcher
 from slouchbuddy.buddy_brain import BuddyBrain
-from slouchbuddy.notifications import send_notification
+from slouchbuddy.notifications import play_alert_sound, send_notification
 from slouchbuddy.wake_reminder import REMINDER_MESSAGE, TICK_SECONDS, WakeDetector
 
 NOTIFICATION_TITLE = "Slouchbuddy 🐨"
@@ -89,6 +89,8 @@ class PostureMenuBar(rumps.App):
         if view.message:
             self.comment, self.comment_until = view.message, time.time() + 45
             send_notification(NOTIFICATION_TITLE, view.message)
+            if view.alert:
+                play_alert_sound()  # right after the notification, so they land together
 
         if status is None:
             self.status_item.title = "Starting…"

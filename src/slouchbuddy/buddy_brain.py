@@ -32,6 +32,7 @@ GOOD_STREAK_MILESTONES_MIN = (15, 30, 60, 120)
 class BuddyView:
     mood: str
     message: Optional[str] = None  # a new comment to show now, else None
+    alert: bool = False  # True when the comment is a real nudge (slouch, break): play the chime too
 
 
 class BuddyBrain:
@@ -88,7 +89,7 @@ class BuddyBrain:
         if overdue and not self._break_said:
             self._break_said = True
             msg = self._say("Time for a break! Stand up and stretch.", now, force=True)
-            return BuddyView(COFFEE, msg)
+            return BuddyView(COFFEE, msg, alert=bool(msg))
         if not overdue:
             self._break_said = False
 
@@ -107,7 +108,7 @@ class BuddyBrain:
                 msg = self._say(self._slouch_message(status.get("reasons")), now)
                 if msg:
                     self._last_slouch_comment = now
-            return BuddyView(WORRIED if bad_for >= 30 else SLOUCHING, msg)
+            return BuddyView(WORRIED if bad_for >= 30 else SLOUCHING, msg, alert=bool(msg))
 
         # state == "good"
         msg = None

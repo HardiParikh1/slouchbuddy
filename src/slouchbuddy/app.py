@@ -15,7 +15,7 @@ from slouchbuddy import ipc
 from slouchbuddy import ui_overlay as ui
 from slouchbuddy.alert_tracker import BadPostureTracker
 from slouchbuddy.calibration import load_calibration, save_calibration
-from slouchbuddy.notifications import alert_bad_posture, play_alert_sound
+from slouchbuddy.notifications import alert_bad_posture
 from slouchbuddy.pose_detection import PostureDetector
 from slouchbuddy.posture_analyzer import analyze_posture
 from slouchbuddy.session_logger import SessionLogger
@@ -185,11 +185,10 @@ def main(background=False):
                     ui.draw_status_card(frame, analysis.posture_score, reasons_text, pose_detected=True)
                     if bad_duration >= tracker.threshold_seconds:
                         ui.draw_alert_toast(frame)
-                if should_alert:
-                    if background:
-                        play_alert_sound()  # the front end (koala) says what's wrong in its own words
-                    else:
-                        alert_bad_posture(analysis.status, analysis.posture_score)
+                if should_alert and not background:
+                    # In the background the koala front end shows the message AND plays the chime
+                    # together, so they stay in sync.
+                    alert_bad_posture(analysis.status, analysis.posture_score)
 
                 session_logger.log(analysis.posture_score, analysis.status, bad_duration)
 
