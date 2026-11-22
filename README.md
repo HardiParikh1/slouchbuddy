@@ -4,6 +4,8 @@
 
 **Your slouch-fixing desk buddy.** A real-time posture coach for people who work from home: it watches you through your webcam, learns what *your* good posture looks like, and an animated koala in your menu bar nudges you (kindly) when you've been slouching for too long.
 
+![The Slouchbuddy dashboard](docs/dashboard.png)
+
 ## Why I built this
 
 After about six months of working from home, my posture was wrecked. No office chair, no colleagues walking past, just me, a laptop and hours of slowly sinking into the desk. I knew I should sit up straight, but nothing was reminding me, and by the time I noticed, I'd been hunched over for an hour.
@@ -59,7 +61,7 @@ The koala is drawn entirely in code ([`koala.py`](src/slouchbuddy/koala.py)), so
 
 ### The dashboard
 
-`slouchbuddy dashboard` opens a cosy eucalyptus-grove page (light and dark themes) with a koala whose mood follows your average score, soft cards, drifting leaves, and:
+`slouchbuddy dashboard` opens a cosy eucalyptus-grove page (screenshot at the top) (light and dark themes) with a koala whose mood follows your average score, soft cards, drifting leaves, and:
 
 - the score over time by **day, week, month or year**, with a picker for the exact period
 - good-posture percentage, longest bad streak and sessions tracked
