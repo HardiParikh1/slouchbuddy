@@ -56,6 +56,8 @@ class PostureDetector:
             "shoulder_width": shoulder_width,
             "mouth_width": mouth_width,
             "nose_to_shoulder_y": nose_to_shoulder_y,
+            # Signed: positive when the nose is above the shoulder line (upright head)
+            "head_above_shoulders": shoulder_midpoint["y"] - nose.y,
             "nose_to_shoulder_x": nose_to_shoulder_x,
             "shoulder_mid_y": shoulder_midpoint["y"],
             "head_tilt_angle": angle,

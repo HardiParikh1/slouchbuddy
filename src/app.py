@@ -1,15 +1,18 @@
+"""Posture Monitor: real-time webcam loop (one iteration per video frame)."""
+import os
+import time
+
 import cv2
 import mediapipe as mp
-import time
 
 import config
 import ui_overlay as ui
+from alert_tracker import BadPostureTracker
+from calibration import load_calibration, save_calibration
+from notifications import alert_bad_posture
 from pose_detection import PostureDetector
 from posture_analyzer import analyze_posture
-from calibration import save_calibration, load_calibration
 from session_logger import SessionLogger
-from notifications import alert_bad_posture
-# Main Program, runs the loop; one iteration per video frame.
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -18,110 +21,101 @@ CONNECTION_SPEC = mp_drawing.DrawingSpec(color=(160, 160, 160), thickness=1)
 
 SHORTCUTS = [("C", "Calibrate"), ("B", "Break taken"), ("Q", "Quit")]
 
-bad_posture_start_time = None
-last_alert_time = None
-last_break_time = time.time()
 
-posture_detector = PostureDetector()
-baseline_metrics = load_calibration()  # Loaded from calibration.json if it exists
-session_logger = SessionLogger()
+def open_camera():
+    # Set CAMERA_INDEX=1 (etc.) to pick a different camera, e.g. to avoid an iPhone.
+    return cv2.VideoCapture(int(os.environ.get("CAMERA_INDEX", 0)))
 
 
-pose = mp_pose.Pose(
-    static_image_mode=False,
-    model_complexity=1,
-    enable_segmentation=False,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5,
-)
+def main():
+    posture_detector = PostureDetector()
+    baseline_metrics = load_calibration()  # None until the user presses C
+    session_logger = SessionLogger()
+    tracker = BadPostureTracker()
+    last_break_time = time.time()
 
-cap = cv2.VideoCapture(0)
+    pose = mp_pose.Pose(
+        static_image_mode=False,
+        model_complexity=1,
+        enable_segmentation=False,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5,
+    )
+    cap = open_camera()
 
-while True:
-    current_metrics = None
-    success, frame = cap.read()  #reading the latest frame
+    try:
+        while True:
+            success, frame = cap.read()
+            if not success:
+                print("Could not read from camera (check permissions / CAMERA_INDEX).")
+                break
 
-    if not success:
-        break
+            frame = cv2.flip(frame, 1)  # mirror view
 
-    # Flip the camera frame like mirror
-    frame = cv2.flip(frame, 1)
+            # OpenCV frames are BGR; MediaPipe expects RGB.
+            results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-    # Convert BGR to RGB for MediaPipe; OpenCV reads frames in BGR order & MediaPipe expects in RGB
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            current_metrics = None
+            if results.pose_landmarks:
+                mp_drawing.draw_landmarks(
+                    frame,
+                    results.pose_landmarks,
+                    mp_pose.POSE_CONNECTIONS,
+                    landmark_drawing_spec=LANDMARK_SPEC,
+                    connection_drawing_spec=CONNECTION_SPEC,
+                )
+                posture_detector.update_landmarks(results.pose_landmarks)
+                current_metrics = posture_detector.get_current_metrics(mp_pose)
 
-    results = pose.process(rgb_frame) # can be None or 33 point object
+            time_since_break = time.time() - last_break_time
+            minutes, seconds = divmod(int(time_since_break), 60)
+            break_overdue = time_since_break >= config.BREAK_REMINDER_SECONDS
 
-    if results.pose_landmarks:
-        mp_drawing.draw_landmarks(
-            frame,
-            results.pose_landmarks,
-            mp_pose.POSE_CONNECTIONS,
-            landmark_drawing_spec=LANDMARK_SPEC,
-            connection_drawing_spec=CONNECTION_SPEC,
-        )
+            if baseline_metrics is None:
+                ui.draw_calibration_prompt(frame)
+            elif current_metrics is None:
+                tracker.reset()
+                ui.draw_status_card(frame, None, None, pose_detected=False)
+            else:
+                analysis = analyze_posture(current_metrics, baseline_metrics)
 
-        posture_detector.update_landmarks(results.pose_landmarks)
-        current_metrics = posture_detector.get_current_metrics(mp_pose)
+                reasons_text = None
+                if analysis.is_bad_posture:
+                    reasons_text = (
+                        analysis.status.removeprefix("BAD POSTURE: ").replace(" + ", ", ").title()
+                    )
 
-    time_since_break = time.time() - last_break_time
-    minutes, seconds = divmod(int(time_since_break), 60)
-    break_overdue = time_since_break >= config.BREAK_REMINDER_SECONDS
+                bad_duration, should_alert = tracker.update(analysis.is_bad_posture)
 
-    bad_duration = 0
+                ui.draw_status_card(frame, analysis.posture_score, reasons_text, pose_detected=True)
 
-    if baseline_metrics is None:
-        ui.draw_calibration_prompt(frame)
-    elif current_metrics is None:
-        ui.draw_status_card(frame, None, None, pose_detected=False)
-    else:
-        analysis = analyze_posture(current_metrics, baseline_metrics)
-        posture_score = analysis.posture_score
-        is_bad_posture = analysis.is_bad_posture
+                if bad_duration >= tracker.threshold_seconds:
+                    ui.draw_alert_toast(frame)
+                if should_alert:
+                    alert_bad_posture(analysis.status, analysis.posture_score)
 
-        reasons_text = None
-        if is_bad_posture:
-            if bad_posture_start_time is None:
-                bad_posture_start_time = time.time()
-            bad_duration = time.time() - bad_posture_start_time
-            reasons_text = analysis.status.removeprefix("BAD POSTURE: ").replace(" + ", ", ").title()
-        else:
-            bad_posture_start_time = None
-            bad_duration = 0
+                session_logger.log(analysis.posture_score, analysis.status, bad_duration)
 
-        ui.draw_status_card(frame, posture_score, reasons_text, pose_detected=True)
+            ui.draw_break_timer(frame, break_overdue, minutes, seconds)
 
-        if bad_duration >= config.BAD_POSTURE_THRESHOLD_SECONDS:
-            ui.draw_alert_toast(frame)
+            cv2.imshow("Posture Monitor", ui.compose_canvas(frame, SHORTCUTS))
+            key = cv2.waitKey(1) & 0xFF
 
-            if (
-                last_alert_time is None
-                or time.time() - last_alert_time >= config.ALERT_COOLDOWN_SECONDS
-            ):
-                alert_bad_posture(analysis.status, posture_score)
-                last_alert_time = time.time()
+            if key == ord("c") and current_metrics:
+                baseline_metrics = current_metrics
+                save_calibration(baseline_metrics)
+                print("Calibration saved:", baseline_metrics)
+            elif key == ord("b"):
+                last_break_time = time.time()
+                print("Break taken, timer reset")
+            elif key == ord("q"):
+                break
+    finally:
+        cap.release()
+        pose.close()
+        session_logger.close()
+        cv2.destroyAllWindows()
 
-        session_logger.log(posture_score, analysis.status, bad_duration)
 
-    ui.draw_break_timer(frame, break_overdue, minutes, seconds)
-
-    canvas = ui.compose_canvas(frame, SHORTCUTS)
-    cv2.imshow("Posture Monitor", canvas)
-    key = cv2.waitKey(1) & 0xFF
-
-    if key == ord("c") and current_metrics:
-        baseline_metrics = current_metrics
-        save_calibration(baseline_metrics)
-        print("Calibration saved:", baseline_metrics)
-
-    if key == ord("b"):
-        last_break_time = time.time()
-        print("Break taken, timer reset")
-
-    if key == ord("q"):
-        break
-
-cap.release()
-pose.close()
-session_logger.close()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()

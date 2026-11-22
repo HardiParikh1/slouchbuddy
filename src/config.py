@@ -13,6 +13,12 @@ HEAD_FORWARD_DIFF_THRESHOLD = 0.04
 HEAD_TILT_DIFF_THRESHOLD = 10
 SCREEN_PROXIMITY_DIFF_THRESHOLD = 0.015
 
+# Absolute check (independent of calibration): the nose must sit at least this far
+# above the shoulder line, as a fraction of frame height. Upright is ~0.15-0.30;
+# a head level with or below the shoulders (lying down, slumped) is ~0 or negative.
+HEAD_LEVEL_MIN_GAP = 0.08
+HEAD_LEVEL_SCORE_CAP = 40
+
 SHOULDER_GOOD_THRESHOLD = 0.02
 SHOULDER_WARNING_THRESHOLD = 0.05
 

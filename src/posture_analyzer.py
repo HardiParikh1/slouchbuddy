@@ -82,6 +82,10 @@ def analyze_posture(current_metrics, baseline_metrics):
     bad_tilt = head_tilt_diff > config.HEAD_TILT_DIFF_THRESHOLD
     bad_screen_distance = screen_proximity_diff > config.SCREEN_PROXIMITY_DIFF_THRESHOLD
 
+    head_too_low = (
+        current_metrics["head_above_shoulders"] < config.HEAD_LEVEL_MIN_GAP
+    )
+
     bad_reasons = []
 
     if bad_shoulder:
@@ -96,6 +100,9 @@ def analyze_posture(current_metrics, baseline_metrics):
     if bad_screen_distance:
         bad_reasons.append("SCREEN DISTANCE")
 
+    if head_too_low:
+        bad_reasons.append("HEAD LEVEL WITH SHOULDERS")
+
     if bad_reasons:
         status = "BAD POSTURE: " + " + ".join(bad_reasons)
     else:
@@ -104,6 +111,9 @@ def analyze_posture(current_metrics, baseline_metrics):
     posture_score = calculate_posture_score(
         shoulder_diff, head_forward_diff, head_tilt_diff, screen_proximity_diff
     )
+
+    if head_too_low:
+        posture_score = min(posture_score, config.HEAD_LEVEL_SCORE_CAP)
 
     return PostureAnalysis(
         status=status,
